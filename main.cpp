@@ -1,5 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include <SFML/Audio.hpp>
 
 class gold {
 private:
@@ -45,7 +46,7 @@ public:
     }
 
     void damage(int damage) {
-        for (HP; (HP<maxHP) && (goldBalance > 0); HP++ ) goldBalance -= 1;
+        for (HP; (HP<maxHP) && (goldBalance > 0); heal(5) ) goldBalance -= 1;
 
         HP -= damage;
         if (HP <= 0) {
@@ -171,6 +172,9 @@ private:
     const int maxEnemyQuantity = 5;
     const int minEnemyQuantity = 1;
 
+    sf::SoundBuffer buffer;
+    sf::Sound sound;
+
 public:
     dungeon(sf::RenderWindow& W, player& P) {
         srand(time(0));
@@ -178,6 +182,9 @@ public:
         windowReference = &W;
         playerReference = &P;
         dungeonNumber = 1;
+
+        buffer.loadFromFile("../soundeffect.wav");
+        sound.setBuffer(buffer);
 
         //initialize the dungeon with random amounts of gold
         fillGoldList();
@@ -250,6 +257,7 @@ public:
             goldRect.setPosition(dungeonScreenOffset+G.getPosition()[0]*columnSize+(columnSize-goldSize)/2, dungeonScreenOffset+G.getPosition()[1]*columnSize+(columnSize-goldSize)/2);
             if (isRectCollided(player, goldRect)) {
                 playerReference->giveGold(G.getValue());
+                if (!G.isCollected()) sound.play();
                 G.collect();
             }
 
@@ -347,6 +355,11 @@ int main()
     sf::RenderWindow window(sf::VideoMode(600, 400), "Dungeon Crawler");
     window.setKeyRepeatEnabled(false);
     window.setFramerateLimit(30);
+
+    sf::Music music;
+    music.openFromFile("../music.wav");
+    music.setLoop(true);
+    music.play();
 
     player Dude;
 
