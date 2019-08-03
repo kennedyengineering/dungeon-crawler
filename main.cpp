@@ -1,6 +1,5 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
-#include <iostream>
 
 class gold {
 private:
@@ -46,6 +45,59 @@ public:
     }
 
     void damage(int damage) {
+        for (HP; (HP<maxHP) && (goldBalance > 0); HP++ ) goldBalance -= 1;
+
+        HP -= damage;
+        if (HP <= 0) {
+            isDead = true;
+        }
+    }
+
+    bool isAlive() {
+        return !isDead;
+    }
+
+    int getHealth() {
+        return HP;
+    }
+
+    int getGold() {
+        return goldBalance;
+    }
+
+    void giveGold(int value) {
+        if (HP < maxHP) {
+            heal(value*5);
+        } else {
+            goldBalance += value;
+        }
+    }
+
+};
+
+class enemy {
+private:
+    const int maxHP;
+    int HP = maxHP;
+    bool isDead = false;
+    int goldBalance;
+    const int attackValue;
+
+    std::vector<int> location;
+    const int locationUpdateTimerDefault = 60; //30 FPS
+    int locationUpdateTimer = locationUpdateTimerDefault;
+
+public:
+    enemy(int health, int attack, std::vector<int> L, int initialGoldBalance=0) : maxHP(health), attackValue(attack), location(L), goldBalance(initialGoldBalance) {}
+
+    void heal(int health) {
+        HP += health;
+        if (HP > maxHP) {
+            HP = maxHP;
+        }
+    }
+
+    void damage(int damage) {
         HP -= damage;
         if (HP <= 0) {
             isDead = true;
@@ -68,6 +120,28 @@ public:
         goldBalance += value;
     }
 
+    int getAttackValue() {
+        return attackValue;
+    }
+
+    std::vector<int> getPosition() {
+        return location;
+    }
+
+    void updatePosition(int position[2]) {
+        if (locationUpdateTimer <= 0) {
+            locationUpdateTimer = locationUpdateTimerDefault;
+
+            if (position[0] > location[0]) location[0] += 1;
+            else if (position[0] < location[0]) location[0] -=  1;
+            if (position[1] > location[1]) location[1] += 1;
+            else if (position[1] < location[1]) location[1] -= 1;
+
+        } else {
+            locationUpdateTimer -= 1;
+        }
+    }
+
 };
 
 class dungeon {
@@ -85,12 +159,17 @@ private:
     sf::Color backgroundColor = sf::Color(100,100,100);
     sf::Color playerColor = sf::Color(30, 50, 255);
     sf::Color goldColor = sf::Color(255, 220, 50);
+    sf::Color enemyColor = sf::Color(195, 5, 5);
 
     int playerPosition[2] = {0, 0}; //in columns
 
     std::vector<gold> goldList;
     const int maxGoldQuantity = 14; //14 is a good number
     const int minGoldQuantity = 1;
+
+    std::vector<enemy> enemyList;
+    const int maxEnemyQuantity = 5;
+    const int minEnemyQuantity = 1;
 
 public:
     dungeon(sf::RenderWindow& W, player& P) {
@@ -100,7 +179,20 @@ public:
         playerReference = &P;
         dungeonNumber = 1;
 
+        //initialize the dungeon with random amounts of gold
         fillGoldList();
+
+        //initialize the dungeon with random enemies
+        fillEnemyList();
+    }
+
+    void fillEnemyList() {
+        enemyList.clear();
+        //random enemy generator!
+        int enemyQuantity = rand()%(maxEnemyQuantity+dungeonNumber-1)+(minEnemyQuantity+dungeonNumber-1);
+        for (int i = 0; i < enemyQuantity; i++) {
+            enemyList.push_back(enemy(20, 5, std::vector<int> {rand()%26, rand()%13}));
+        }
     }
 
     void fillGoldList() {
@@ -138,6 +230,19 @@ public:
         player.setFillColor(playerColor);
         windowReference->draw(player);
 
+        //draw enemies
+        sf::RectangleShape enemyRect(sf::Vector2f((float) columnSize, (float) columnSize));
+        enemyRect.setFillColor(enemyColor);
+        for (class enemy& E : enemyList) {
+            enemyRect.setPosition(dungeonScreenOffset+E.getPosition()[0]*columnSize, dungeonScreenOffset+E.getPosition()[1]*columnSize);
+            if (isRectCollided(player, enemyRect)) {
+                playerReference->damage(E.getAttackValue());
+            }
+            E.updatePosition(playerPosition);
+
+            windowReference->draw(enemyRect);
+        }
+
         //draw gold + handle collision detection
         sf::RectangleShape goldRect(sf::Vector2f((float) goldSize,(float) goldSize));
         goldRect.setFillColor(goldColor);
@@ -151,6 +256,13 @@ public:
             if (!G.isCollected())
                 windowReference->draw(goldRect);
         }
+
+        //if all gold has been collected go to next dungeon
+        int numGoldCollected = 0;
+        for (class gold G : goldList) {
+            if (G.isCollected()) numGoldCollected += 1;
+        }
+        if (numGoldCollected == goldList.size()) evolveDungeon();
     };
 
     void movePlayer(int dir) {
@@ -175,6 +287,16 @@ public:
 
     int getNumber() {
         return dungeonNumber;
+    }
+
+    void evolveDungeon() {
+        playerPosition[0] = 0;
+        playerPosition[1] = 0;
+
+        dungeonNumber += 1;
+
+        fillGoldList();
+        fillEnemyList();
     }
 
 };
@@ -224,6 +346,7 @@ int main()
 {
     sf::RenderWindow window(sf::VideoMode(600, 400), "Dungeon Crawler");
     window.setKeyRepeatEnabled(false);
+    window.setFramerateLimit(30);
 
     player Dude;
 
